@@ -40,25 +40,32 @@ def create_2d_social_network(grid_size, long_range_prob=1):
             weight = 1 / (distance + 1e-6)
             G.add_edge(node, target_node, weight=weight)
             long_range_edges.append((node, target_node))  
-            
+
     return G, long_range_edges
 
-def visualize_weighted_network(G, grid_size):
+def visualize_weighted_network_with_opinions(G, grid_size, opinions):
     pos = {node: (node // grid_size, node % grid_size) for node in G.nodes()}
     edges = G.edges(data=True)
-    
+
     # Extract weights and scale them for better visibility
     weights = [data['weight'] for _, _, data in edges]
     scaled_weights = [5 * w / max(weights) for w in weights]  # Normalize and scale for better visualization
 
-    # Draw the nodes
-    plt.figure(figsize=(10, 8))
-    nx.draw_networkx_nodes(G, pos, node_size=50, node_color="blue")
-    
-    # Draw the edges with scaled widths
-    nx.draw_networkx_edges(G, pos, width=scaled_weights, edge_color="black")
+    # Create a figure and axes
+    fig, ax = plt.subplots(figsize=(10, 8))
 
-    plt.title("Network with Weights Proportional to Distance")
+    # Color nodes based on opinions
+    node_colors = ['red' if opinion == 1 else 'blue' if opinion == -1 else 'black' for opinion in opinions]
+    
+    # Draw the network nodes with different colors based on opinions
+    nx.draw_networkx_nodes(G, pos, node_size=50, node_color=node_colors, ax=ax)
+
+    # Draw the edges with color based on the weight
+    nx.draw_networkx_edges(G, pos, edgelist=edges, edge_color='black', width=scaled_weights, ax=ax)
+
+    # Display title
+    ax.set_title("Network with Opinions and Edge Weights")
+    ax.axis("off")  # Turn off the axis for a cleaner visualization
     plt.show()
 
 def initialize_opinions(num_nodes, num_positive_seeds, num_negative_seeds):
@@ -70,38 +77,16 @@ def initialize_opinions(num_nodes, num_positive_seeds, num_negative_seeds):
     opinions[negative_indices] = -1
     return opinions, positive_indices, negative_indices
 
-def find_ground_state_min_cut(G, positive_indices, negative_indices):
-    G_extended = G.copy()
-    
-    super_source = 'source'
-    super_sink = 'sink'
-    G_extended.add_node(super_source)
-    G_extended.add_node(super_sink)
-    
-    for node in positive_indices:
-        G_extended.add_edge(super_source, node, weight=np.inf)  
-    
-    for node in negative_indices:
-        G_extended.add_edge(super_sink, node, weight=np.inf) 
-        
-    cut_value, partition = nx.stoer_wagner(G_extended)
-    
-    reachable_from_source = partition[0] if super_source in partition[0] else partition[1]
-    
-    ground_state = np.zeros(len(G)) 
-    for node in G.nodes():
-        if node in reachable_from_source:
-            ground_state[node] = 1  
-        else:
-            ground_state[node] = -1 
-    
-    return ground_state
-
-def set_remaining_nodes_negative(opinions):
-    for node in range(len(opinions)):
-        if opinions[node] == 0:
-            opinions[node] = -1
-            
+# Example usage
 grid_size = 10
+num_positive_seeds = 10
+num_negative_seeds = 20
+
+# Create the social network
 G, _ = create_2d_social_network(grid_size)
-visualize_weighted_network(G, grid_size)
+
+# Initialize opinions
+opinions, positive_indices, negative_indices = initialize_opinions(grid_size ** 2, num_positive_seeds, num_negative_seeds)
+
+# Visualize the network with colorful edges and nodes based on opinions
+visualize_weighted_network_with_opinions(G, grid_size, opinions)
